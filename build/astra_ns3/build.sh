@@ -20,13 +20,13 @@ function setup {
 }
 function compile {
     cd "${NS3_DIR}"
-    ./ns3 configure --enable-mpi
-    ./ns3 build AstraSimNetwork -j 12
+    ./ns3 configure --enable-mpi --disable-tests --disable-examples --build-profile optimized
+    ./ns3 build AstraSimNetwork -j "${ASTRA_BUILD_JOBS:-4}"
     cd "${SCRIPT_DIR:?}"
 }
 function run {
     cd "${NS3_DIR}/build/scratch"
-    ./ns3.42-AstraSimNetwork-default \
+    ./ns3.42-AstraSimNetwork-optimized \
         --workload-configuration=${WORKLOAD} \
         --system-configuration=${SYSTEM} \
         --network-configuration=${NETWORK} \
@@ -45,8 +45,8 @@ function cleanup_result {
 }
 function debug {
     cd "${NS3_DIR}"
-    ./ns3 configure --enable-mpi --build-profile debug
-    ./ns3 build AstraSimNetwork -j 12 -v
+    ./ns3 configure --enable-mpi --disable-tests --disable-examples --build-profile debug
+    ./ns3 build AstraSimNetwork -j "${ASTRA_BUILD_JOBS:-4}" -v
     cd "${NS3_DIR}/build/scratch"
     gdb --args "${NS3_DIR}/build/scratch/ns3.42-AstraSimNetwork-debug" \
         --workload-configuration=${WORKLOAD} \

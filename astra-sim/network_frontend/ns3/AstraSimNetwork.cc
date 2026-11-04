@@ -3,7 +3,16 @@
 #include "extern/memory_backend/analytical/AnalyticalMemory.hh"
 #include <json/json.hpp>
 
+#include "astra-sim/common/Logging.hh"
+// The syslog sink exports macros that collide with ns-3 log-level names.
+#ifdef LOG_DEBUG
+#undef LOG_DEBUG
+#endif
+#ifdef LOG_INFO
+#undef LOG_INFO
+#endif
 #include "entry.h"
+#include "astra-sim/network_frontend/ns3/ServingDriver.hh"
 #include "ns3/applications-module.h"
 #include "ns3/core-module.h"
 #include "ns3/csma-module.h"
@@ -82,10 +91,13 @@ class NS3BackendCompletionTracker {
             }
         }
 
-        void check_all_ranks_finished() {
+        void check_all_ranks_finished(const vector<AstraSim::Sys*>& systems) {
+            // Completion notifications are sticky across serving iterations.
+            const bool finished = std::all_of(systems.begin(), systems.end(),
+                [](const AstraSim::Sys* sys) { return sys->workload->is_finished; });
             // check non exited system
             cout << "Checking Non-Exited Systems ..." << endl;
-            if (num_unfinished_ranks_ == 0){
+            if (finished){
                 cout << "---------------------------" << endl;
                 cout << "All Request Has Been Exited" << endl;
                 cout << "---------------------------" << endl;
@@ -97,7 +109,7 @@ class NS3BackendCompletionTracker {
             }
             Simulator::Stop();
             Simulator::Destroy();
-            exit(0);
+            exit(finished ? 0 : 1);
         }
 
     private:
@@ -234,6 +246,9 @@ string network_configuration;
 string memory_configuration;
 string comm_group_configuration = "empty";
 string logical_topology_configuration;
+string start_npu_ids;
+string end_npu_ids;
+long long host_dispatch_latency_ns = 0;
 string logging_configuration = "empty";
 int num_queues_per_dim = 1;
 double comm_scale = 1;
@@ -303,6 +318,9 @@ void parse_args(int argc, char* argv[]) {
     cmd.AddValue("rendezvous-protocol", "Whether to enable rendezvous protocol",
                  rendezvous_protocol);
 
+    cmd.AddValue("start-npu-ids", "Serving controller ranks", start_npu_ids);
+    cmd.AddValue("end-npu-ids", "Serving completion ranks", end_npu_ids);
+    cmd.AddValue("host-dispatch-latency-ns", "Measured host handoff latency per forward", host_dispatch_latency_ns);
     cmd.Parse(argc, argv);
 }
 
@@ -393,35 +411,18 @@ int main(int argc, char* argv[]) {
         systems[i]->workload->fire();
     }
 
-    // Run the simulation by triggering the ns3 event queue.
-    // Simulator::Run();
-    Simulator::PreRun();
-    bool exit = false;
-    while (!exit) {
-        if(Simulator::IsFinished()){
-            Simulator::Schedule(NanoSeconds(idle_ticks), [] {});
-        }
-        Simulator::RunOneEvent();
-        for (int i = 0; i < num_npus; i++) {
-            if(systems[i]->workload->is_finished){
-                systems[i]->workload->report();
-                AstraSim::LoggerFactory::get_logger("workload")->info("Waiting");
-                string new_filename;
-                getline(cin, new_filename);
-                if (new_filename.compare("pass") == 0){ // if pass
-                    continue;
-                }
-                else if (new_filename.compare("exit") == 0){ // exit the simulator
-                    exit = true;
-                    break;
-                }
-                else{ // add new worklaod
-                    // cout << "Adding " << new_filename << endl;
-                    systems[i]->workload->addWorkload(new_filename);
-                }
-            }
+    auto starts = parse_serving_ranks(start_npu_ids, num_npus);
+    auto ends = parse_serving_ranks(end_npu_ids, num_npus);
+    if (starts.empty()) {
+        for (int rank = 0; rank < num_npus; ++rank) starts.push_back(rank);
+    }
+    for (int rank : ends) {
+        if (std::find(starts.begin(), starts.end(), rank) != starts.end()) {
+            throw std::invalid_argument("Serving start/end rank sets overlap");
         }
     }
-    completion_tracker->check_all_ranks_finished();
+    if (host_dispatch_latency_ns < 0) throw std::invalid_argument("Negative host dispatch latency");
+    run_ns3_serving(systems, starts, ends, host_dispatch_latency_ns);
+    completion_tracker->check_all_ranks_finished(systems);
     return 0;
 }

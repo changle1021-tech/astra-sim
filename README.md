@@ -30,11 +30,12 @@ an older binary's global counter is not compatible with that omission.
 ## LLMServingSim iteration completion
 
 LLMServingSim uses the first rank of each instance to admit work and the last
-rank to report instance completion. The analytical frontends delay that tail
+rank to report instance completion. The analytical and ns-3 frontends delay that tail
 report until every rank in the instance has completed the same workload
 iteration. A managed rank already executing a later iteration counts as having
 completed the target, so pipeline overlap is preserved while an imbalanced TP
 rank can no longer be hidden by faster boundary ranks.
+Rebuild the ns-3 executable to apply the same completion contract there.
 
 ## Logical collective links
 
