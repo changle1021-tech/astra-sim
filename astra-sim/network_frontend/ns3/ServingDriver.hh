@@ -2,6 +2,7 @@
 
 #include "astra-sim/common/Logging.hh"
 #include "astra-sim/system/Sys.hh"
+#include "astra-sim/network_frontend/ns3/NetworkMonitor.hh"
 #include "ns3/core-module.h"
 #include <algorithm>
 #include <cstdlib>
@@ -20,7 +21,8 @@ namespace AstraSim {
 inline void run_ns3_serving(std::vector<Sys*>& systems,
                             const std::vector<int>& starts,
                             const std::vector<int>& ends,
-                            long long host_dispatch_latency_ns = 0) {
+                            long long host_dispatch_latency_ns = 0,
+                            Ns3NetworkMonitor* monitor = nullptr) {
     const int count = systems.size();
     std::vector<std::vector<Sys*>> managed(starts.size());
     for (std::size_t i = 0; i < starts.size(); ++i) {
@@ -137,6 +139,7 @@ inline void run_ns3_serving(std::vector<Sys*>& systems,
             clear();
         }
         ns3::Simulator::RunOneEvent();
+        if (monitor) monitor->Sample();
         bool asked = false;
         for (std::size_t i = 0; i < ends.size(); ++i) {
             const int rank = ends[i];

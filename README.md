@@ -37,6 +37,25 @@ completed the target, so pipeline overlap is preserved while an imbalanced TP
 rank can no longer be hidden by faster boundary ranks.
 Rebuild the ns-3 executable to apply the same completion contract there.
 
+## Serving network monitoring
+
+The ns-3 serving frontend can record per-port packet throughput and sampled
+RDMA QP sending rates using existing device and completion traces. Monitoring
+observes the serving event loop without scheduling extra simulator events.
+`ENABLE_NETWORK_MONITOR` enables the generated `BW_MON_FILE`, `RATE_MON_FILE`
+and `NETWORK_MONITOR_SUMMARY_FILE`; `BW_MON_INTERVAL_NS` and
+`QP_MON_INTERVAL_NS` set positive sampling intervals in nanoseconds. The
+LLMServingSim frontend supplies these settings and paths. Packet tracing is
+independent. Rebuild the ns-3 executable after updating this frontend.
+
+Port samples include idle intervals and a final partial interval, with each
+physical peer identified separately even for parallel links. Bytes include
+headers and control traffic; TX is counted at transmission start and RX at
+successful MAC reception. QP zero-rate records mark actual completion, while
+positive rates describe congestion-control settings rather than measured
+throughput. See LLMServingSim's ns-3 backend guide and
+`scripts/ns3-network-plots.py` for output schemas and offline HTML charts.
+
 ## Logical collective links
 
 The congestion-unaware analytical frontend accepts an optional

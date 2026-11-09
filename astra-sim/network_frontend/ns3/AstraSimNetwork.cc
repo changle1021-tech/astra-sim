@@ -405,6 +405,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Fail to setup ns3 simulation." << std::endl;
         return -1;
     }
+    Ns3NetworkMonitor monitor(network_configuration, n);
 
     // Tell workload layer to schedule first events.
     for (int i = 0; i < num_npus; i++) {
@@ -422,7 +423,8 @@ int main(int argc, char* argv[]) {
         }
     }
     if (host_dispatch_latency_ns < 0) throw std::invalid_argument("Negative host dispatch latency");
-    run_ns3_serving(systems, starts, ends, host_dispatch_latency_ns);
+    run_ns3_serving(systems, starts, ends, host_dispatch_latency_ns, &monitor);
+    monitor.Finish();
     completion_tracker->check_all_ranks_finished(systems);
     return 0;
 }
