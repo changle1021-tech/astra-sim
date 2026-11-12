@@ -1,4 +1,4 @@
-topology: [FullyConnected]
-npus_count: [1]
-bandwidth: [112.0]
-latency: [0.0]
+topology: [FullyConnected, FullyConnected]
+npus_count: [4, 3]
+bandwidth: [16.0, 16.0]
+latency: [20000.0, 20000.0]
